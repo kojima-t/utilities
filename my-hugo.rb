@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'optparse'
+require 'open3'
 
 class MyHugo
   def initialize article
@@ -25,7 +26,23 @@ class MyHugo
 
   def watch_draft
     Dir.chdir(@BLOG_DIR) do
-      puts `hugo server -w -D -t "#{@THEME}"`
+      cmd = "hugo server -w -D -t #{@THEME}"
+      stdin, stdout, stderr = Open3.popen3(cmd)
+      puts "Access to localhost:1313"
+      puts "You should type anything to stop this script."
+      q = gets
+      exit 0
+    end
+  end
+
+  def watch_daemon
+    Dir.chdir(@BLOG_DIR) do
+      cmd = "hugo server -w -D -t #{@THEME}"
+      fork do
+        puts "Access to localhost:1313"
+        puts "This is daemon process. If you want to stop, kill this."
+        `#{cmd}`
+      end
     end
   end
 
@@ -50,6 +67,15 @@ class MyHugo
     end
   end
 
+  def list_articles
+    Dir.chdir(@POST_DIR) do
+      puts Dir.glob('*')
+    end
+  end
+
+  def search_articles
+  end
+
   private
 
   def generate
@@ -66,17 +92,22 @@ class MyHugo
 
   def edit_article(file_name)
     Dir.chdir(@POST_DIR) do
-      `atom #{file_name}`
+      fork do
+        `atom #{file_name}`
+      end
     end
   end
 end
 
 option = {}
 OptionParser.new do |opt|
-  opt.on('-d', '--deploy') { |v| option[:deploy] = v }
-  opt.on('-a', '--add') { |v| option[:add] = v }
-  opt.on('-u', '--undraft') { |v| option[:undraft] = v}
-  opt.on('-w', '--watch-undraft') { |v| option[:watch] = v }
+  opt.on('-d', '--deploy', 'GitHub Pages に deploy') { |v| option[:deploy] = v }
+  opt.on('-a', '--add', '記事を content/post ディレクトリに追加、編集用にエディタを開く。') { |v| option[:add] = v }
+  opt.on('-u', '--undraft', '指定した記事を下書きから外す。') { |v| option[:undraft] = v}
+  opt.on('-w', '--watch', 'プレビューサーバーを起動する。') { |v| option[:watch] = v }
+  opt.on('--daemon', 'プレビューサーバーのデーモン化') { |v| option[:daemon] = v }
+  opt.on('-l', '--list-files', 'content/post ディレクトリのファイルを表示') { |v| option[:list] = v }
+  opt.on('-s', '--search-file=VALUE', '引数にとったファイル名を検索') { |v| option[:search] = v }
   opt.parse!(ARGV)
 end
 
@@ -94,10 +125,12 @@ if __FILE__ == $PROGRAM_NAME
         else
           ARGV[0]
         end
-  puts arg
   hugo = MyHugo.new(arg)
   hugo.post_add if option[:add]
   hugo.deploy if option[:deploy]
-  hugo.watch_draft if option[:watch]
+  hugo.watch_undraft if option[:watch]
   hugo.undraft if option[:undraft]
+  hugo.watch_daemon if option[:daemon]
+  hugo.list_articles if option[:list]
+  hugo.search_articles if option[:search]
 end
