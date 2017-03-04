@@ -59,11 +59,13 @@ class MyHugo
   end
 
   def undraft
-    if article_exist? @article
-      puts "We will undraft this article."
-      `hugo undraft "post/#{@article}"`
-    else
-      puts "No such article."
+    Dir.chdir(@BLOG_DIR) do
+      if article_exist? @article
+        puts "We will undraft this article."
+        `hugo undraft "content/post/#{@article}"`
+      else
+        puts "No such article."
+      end
     end
   end
 
@@ -128,7 +130,7 @@ if __FILE__ == $PROGRAM_NAME
   hugo = MyHugo.new(arg)
   hugo.post_add if option[:add]
   hugo.deploy if option[:deploy]
-  hugo.watch_undraft if option[:watch]
+  hugo.watch_draft if option[:watch]
   hugo.undraft if option[:undraft]
   hugo.watch_daemon if option[:daemon]
   hugo.list_articles if option[:list]
